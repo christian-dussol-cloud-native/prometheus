@@ -1,0 +1,53 @@
+# ============================================================
+# SLO Monitoring Queries
+# SLA/SLO compliance tracking
+# ============================================================
+
+# ----- Pod availability (uptime percentage) -----
+# Percentage of time pods were in Ready state over 30 days
+avg_over_time(
+  kube_pod_status_ready{condition="true"}[30d]
+) * 100
+
+# ----- Container restart rate -----
+# High restart rates indicate instability
+sum by (namespace, pod) (
+  increase(kube_pod_container_status_restarts_total[24h])
+)
+
+# ----- DORA Metric: Mean Time to Recovery (MTTR) proxy -----
+# Track how long pods spend in non-ready state
+# (requires recording rules for precise MTTR)
+avg by (namespace) (
+  changes(kube_pod_status_ready{condition="true"}[7d])
+)
+
+# ----- API server request latency (P99) -----
+histogram_quantile(0.99,
+  sum by (verb, resource, le) (
+    rate(apiserver_request_duration_seconds_bucket[5m])
+  )
+)
+
+# ----- Error rate by namespace -----
+# Percentage of 5xx responses (if using service meshes or ingress metrics)
+# Adapt metric name based on your ingress controller
+# Example with nginx-ingress:
+# sum by (namespace) (
+#   rate(nginx_ingress_controller_requests{status=~"5.."}[5m])
+# )
+# /
+# sum by (namespace) (
+#   rate(nginx_ingress_controller_requests[5m])
+# ) * 100
+
+# ----- Pod disruption budget violations -----
+kube_poddisruptionbudget_status_current_healthy
+<
+kube_poddisruptionbudget_status_desired_healthy
+
+# ----- Deployment rollout health -----
+# Deployments where available replicas < desired
+kube_deployment_status_replicas_available
+<
+kube_deployment_spec_replicas

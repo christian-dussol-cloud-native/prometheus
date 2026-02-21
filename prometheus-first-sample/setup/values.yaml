@@ -1,0 +1,126 @@
+# kube-prometheus-stack Helm values
+# Optimized for educational use and cost optimization learning
+# Reference: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack
+
+prometheus:
+  prometheusSpec:
+    # Retention: 7 days for local clusters (adjust for production)
+    retention: 7d
+    retentionSize: "5GB"
+
+    # Resource limits for Prometheus itself
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # Scrape interval
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+    # Enable additional scrape configs for custom exporters
+    additionalScrapeConfigs: []
+
+    # Storage configuration (use emptyDir for local, PVC for production)
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+grafana:
+  enabled: true
+  adminPassword: prom-operator
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+  # Default dashboards
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# Node exporter for host metrics
+nodeExporter:
+  enabled: true
+
+# kube-state-metrics for Kubernetes object metrics
+kubeStateMetrics:
+  enabled: true
+
+kube-state-metrics:
+  metricLabelsAllowlist:
+    - pods=[team,project,environment,cost-center]
+
+# Additional PrometheusRule for cost-related alerts
+additionalPrometheusRulesMap:
+  cost-optimization:
+    groups:
+      - name: cost-optimization-alerts
+        rules:
+          # Alert: Pod running without resource limits
+          - alert: PodWithoutResourceLimits
+            expr: |
+              count by (namespace, pod) (
+                kube_pod_container_info
+              ) unless count by (namespace, pod) (
+                kube_pod_container_resource_limits{resource="cpu"}
+              )
+            for: 10m
+            labels:
+              severity: warning
+              category: cost-optimization
+            annotations:
+              summary: "Pod {{ $labels.pod }} in {{ $labels.namespace }} has no CPU limits"
+              description: "Pods without resource limits cannot be accurately measured for cost attribution."
+
+          # Alert: Low CPU utilization (potential over-provisioning)
+          - alert: LowCPUUtilization
+            expr: |
+              (
+                avg by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=""}[1h]))
+                /
+                avg by (namespace, pod) (kube_pod_container_resource_limits{resource="cpu", container!=""})
+              ) < 0.15
+            for: 24h
+            labels:
+              severity: info
+              category: cost-optimization
+            annotations:
+              summary: "Pod {{ $labels.pod }} in {{ $labels.namespace }} uses < 15% of CPU limit"
+              description: "Consider right-sizing this workload to reduce costs."
+
+          # Alert: Low memory utilization
+          - alert: LowMemoryUtilization
+            expr: |
+              (
+                avg by (namespace, pod) (container_memory_usage_bytes{container!=""})
+                /
+                avg by (namespace, pod) (kube_pod_container_resource_limits{resource="memory", container!=""})
+              ) < 0.20
+            for: 24h
+            labels:
+              severity: info
+              category: cost-optimization
+            annotations:
+              summary: "Pod {{ $labels.pod }} in {{ $labels.namespace }} uses < 20% of memory limit"
+              description: "Consider right-sizing this workload to reduce costs."

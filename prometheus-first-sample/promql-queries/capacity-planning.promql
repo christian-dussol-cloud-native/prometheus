@@ -1,0 +1,65 @@
+# ============================================================
+# Capacity Planning Queries
+# Forecast resource needs based on trends
+# ============================================================
+
+# ----- CPU usage trend (7-day prediction) -----
+# Linear prediction of CPU usage based on the last 7 days
+predict_linear(
+  sum by (namespace) (
+    rate(container_cpu_usage_seconds_total[1h])
+  )[7d:1h],
+  7 * 24 * 3600
+)
+
+# ----- Memory usage trend (7-day prediction) -----
+predict_linear(
+  sum by (namespace) (
+    container_memory_usage_bytes
+  )[7d:1h],
+  7 * 24 * 3600
+)
+
+# ----- Namespace approaching CPU limit (> 80% of total requests) -----
+(
+  sum by (namespace) (
+    rate(container_cpu_usage_seconds_total[5m])
+  )
+  /
+  sum by (namespace) (
+    kube_pod_container_resource_requests{resource="cpu", container!=""}
+  )
+) > 0.80
+
+# ----- Namespace approaching memory limit (> 80% of total requests) -----
+(
+  sum by (namespace) (
+    container_memory_usage_bytes
+  )
+  /
+  sum by (namespace) (
+    kube_pod_container_resource_requests{resource="memory", container!=""}
+  )
+) > 0.80
+
+# ----- Node CPU saturation -----
+# Percentage of allocatable CPU that is requested
+sum by (node) (
+  kube_pod_container_resource_requests{resource="cpu"}
+)
+/
+sum by (node) (
+  kube_node_status_allocatable{resource="cpu"}
+) * 100
+
+# ----- Node memory saturation -----
+sum by (node) (
+  kube_pod_container_resource_requests{resource="memory"}
+)
+/
+sum by (node) (
+  kube_node_status_allocatable{resource="memory"}
+) * 100
+
+# ----- Pods pending due to insufficient resources -----
+kube_pod_status_phase{phase="Pending"} == 1

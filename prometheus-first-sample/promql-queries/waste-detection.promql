@@ -1,0 +1,71 @@
+# ============================================================
+# Waste Detection Queries
+# Identify over-provisioned and idle workloads
+# ============================================================
+
+# ----- Over-provisioned pods: CPU usage < 15% of limit -----
+# These pods are likely candidates for right-sizing
+(
+  avg by (namespace, pod) (
+    rate(container_cpu_usage_seconds_total[1h])
+  )
+  /
+  avg by (namespace, pod) (
+    kube_pod_container_resource_limits{resource="cpu", container!=""}
+  )
+) < 0.15
+
+# ----- Over-provisioned pods: Memory usage < 20% of limit -----
+(
+  avg by (namespace, pod) (
+    container_memory_usage_bytes
+  )
+  /
+  avg by (namespace, pod) (
+    kube_pod_container_resource_limits{resource="memory", container!=""}
+  )
+) < 0.20
+
+# ----- Wasted CPU cores per namespace -----
+# Difference between requested CPU and actual usage
+sum by (namespace) (
+  kube_pod_container_resource_requests{resource="cpu", container!=""}
+)
+-
+sum by (namespace) (
+  rate(container_cpu_usage_seconds_total[1h])
+)
+
+# ----- Wasted memory per namespace (in GiB) -----
+(
+  sum by (namespace) (
+    kube_pod_container_resource_requests{resource="memory", container!=""}
+  )
+  -
+  sum by (namespace) (
+    container_memory_usage_bytes
+  )
+) / 1024 / 1024 / 1024
+
+# ----- Pods with zero CPU usage (idle pods) -----
+# Pods that consumed no CPU in the last hour
+sum by (namespace, pod) (
+  rate(container_cpu_usage_seconds_total[1h])
+) == 0
+
+# ----- Ratio of requested vs actual (right-sizing indicator) -----
+# Values > 2 = over-provisioned by more than 2x
+(
+  sum by (namespace, pod) (
+    kube_pod_container_resource_requests{resource="cpu", container!=""}
+  )
+  /
+  sum by (namespace, pod) (
+    rate(container_cpu_usage_seconds_total[1h])
+  )
+)
+
+# ----- Total cluster waste: requested but unused CPU -----
+sum(kube_pod_container_resource_requests{resource="cpu", container!=""})
+-
+sum(rate(container_cpu_usage_seconds_total[1h]))

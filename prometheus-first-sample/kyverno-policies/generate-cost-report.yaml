@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-cost-report
+  annotations:
+    policies.kyverno.io/title: Generate Cost Tracking Annotations
+    policies.kyverno.io/category: Cost Optimization
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Automatically adds cost-tracking annotations to new pods, including
+      a timestamp for cost allocation tracking and a cost-center annotation
+      derived from the team label. This metadata enables precise cost
+      reporting in Grafana dashboards.
+spec:
+  background: false
+  rules:
+    - name: add-cost-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              cost-tracking/enabled: "true"
+              cost-tracking/created-at: "{{ time_now_utc() }}"
+              cost-tracking/team: "{{ request.object.metadata.labels.team || 'unassigned' }}"
+              cost-tracking/project: "{{ request.object.metadata.labels.project || 'unassigned' }}"

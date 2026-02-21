@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: overprovisioned-app
+  namespace: demo
+  labels:
+    app: overprovisioned-app
+    team: legacy
+    project: migration-candidate
+    environment: development
+  annotations:
+    description: >-
+      Deliberately over-provisioned workload for educational purposes.
+      This deployment requests far more resources than it actually uses,
+      making it visible in waste detection PromQL queries and Grafana dashboards.
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: overprovisioned-app
+  template:
+    metadata:
+      labels:
+        app: overprovisioned-app
+        team: legacy
+        project: migration-candidate
+        environment: development
+    spec:
+      containers:
+        - name: wasteful-container
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          # Deliberately over-provisioned: requests 500m CPU but nginx
+          # at idle uses ~1-5m CPU. This creates a 100x over-provisioning
+          # ratio that should trigger waste detection alerts.
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: overprovisioned-app
+  namespace: demo
+  labels:
+    app: overprovisioned-app
+    team: legacy
+    project: migration-candidate
+spec:
+  selector:
+    app: overprovisioned-app
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

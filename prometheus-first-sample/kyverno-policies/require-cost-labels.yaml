@@ -1,0 +1,82 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-cost-labels
+  annotations:
+    policies.kyverno.io/title: Require Cost Labels
+    policies.kyverno.io/category: Cost Optimization
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Cost attribution requires consistent labeling across all workloads.
+      This policy ensures every pod has 'team', 'project', and 'environment'
+      labels, enabling Prometheus to aggregate cost data by ownership.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-team-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          The label 'team' is required for cost attribution.
+          Example: team: payments
+        pattern:
+          metadata:
+            labels:
+              team: "?*"
+
+    - name: require-project-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          The label 'project' is required for cost attribution.
+          Example: project: treasury-api
+        pattern:
+          metadata:
+            labels:
+              project: "?*"
+
+    - name: require-environment-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          The label 'environment' is required for cost attribution.
+          Allowed values: development, staging, production
+        pattern:
+          metadata:
+            labels:
+              environment: "development | staging | production"

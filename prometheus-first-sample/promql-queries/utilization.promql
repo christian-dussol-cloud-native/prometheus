@@ -1,0 +1,69 @@
+# ============================================================
+# Utilization Tracking Queries
+# Measure how efficiently resources are being used
+# ============================================================
+
+# ----- CPU utilization vs limits (percentage) -----
+# How much of the CPU limit is actually being used
+(
+  sum by (namespace, pod) (
+    rate(container_cpu_usage_seconds_total[5m])
+  )
+  /
+  sum by (namespace, pod) (
+    kube_pod_container_resource_limits{resource="cpu", container!=""}
+  )
+) * 100
+
+# ----- Memory utilization vs limits (percentage) -----
+(
+  sum by (namespace, pod) (
+    container_memory_usage_bytes
+  )
+  /
+  sum by (namespace, pod) (
+    kube_pod_container_resource_limits{resource="memory", container!=""}
+  )
+) * 100
+
+# ----- CPU utilization vs requests (percentage) -----
+# Shows if requests are right-sized
+(
+  sum by (namespace, pod) (
+    rate(container_cpu_usage_seconds_total[5m])
+  )
+  /
+  sum by (namespace, pod) (
+    kube_pod_container_resource_requests{resource="cpu", container!=""}
+  )
+) * 100
+
+# ----- Memory utilization vs requests (percentage) -----
+(
+  sum by (namespace, pod) (
+    container_memory_usage_bytes
+  )
+  /
+  sum by (namespace, pod) (
+    kube_pod_container_resource_requests{resource="memory", container!=""}
+  )
+) * 100
+
+# ----- Average namespace utilization (CPU) -----
+# Useful for per-team efficiency comparisons
+avg by (namespace) (
+  (
+    rate(container_cpu_usage_seconds_total[5m])
+    /
+    kube_pod_container_resource_limits{resource="cpu", container!=""}
+  ) * 100
+)
+
+# ----- Average namespace utilization (Memory) -----
+avg by (namespace) (
+  (
+    container_memory_usage_bytes
+    /
+    kube_pod_container_resource_limits{resource="memory", container!=""}
+  ) * 100
+)

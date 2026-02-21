@@ -1,0 +1,71 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/category: Cost Optimization
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Pods without resource requests and limits cannot be accurately measured
+      for cost attribution. This policy ensures every container specifies
+      CPU and memory requests and limits, making Prometheus metrics meaningful
+      for cost optimization.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-cpu-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          CPU requests and limits are required for cost attribution.
+          Please specify resources.requests.cpu and resources.limits.cpu
+          for container {{request.object.spec.containers[].name}}.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                  limits:
+                    cpu: "?*"
+
+    - name: validate-memory-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          Memory requests and limits are required for cost attribution.
+          Please specify resources.requests.memory and resources.limits.memory
+          for container {{request.object.spec.containers[].name}}.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    memory: "?*"
+                  limits:
+                    memory: "?*"

@@ -1,0 +1,66 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-resource-ratios
+  annotations:
+    policies.kyverno.io/title: Validate Resource Ratios
+    policies.kyverno.io/category: Cost Optimization
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Prevents extreme over-provisioning by validating that the ratio between
+      resource limits and requests stays within acceptable bounds. A limit
+      that is more than 5x the request is a strong indicator of misconfiguration.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: validate-cpu-ratio
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          CPU limit should not exceed 5x the CPU request.
+          Current request: {{request.object.spec.containers[0].resources.requests.cpu}},
+          Current limit: {{request.object.spec.containers[0].resources.limits.cpu}}.
+          Please review your resource configuration to avoid over-provisioning.
+        deny:
+          conditions:
+            any:
+              - key: "{{ divide('{{request.object.spec.containers[0].resources.limits.cpu}}', '{{request.object.spec.containers[0].resources.requests.cpu}}') }}"
+                operator: GreaterThan
+                value: 5
+
+    - name: validate-memory-ratio
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - monitoring
+      validate:
+        message: >-
+          Memory limit should not exceed 5x the memory request.
+          Please review your resource configuration to avoid over-provisioning.
+        deny:
+          conditions:
+            any:
+              - key: "{{ divide('{{request.object.spec.containers[0].resources.limits.memory}}', '{{request.object.spec.containers[0].resources.requests.memory}}') }}"
+                operator: GreaterThan
+                value: 5

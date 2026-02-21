@@ -1,0 +1,55 @@
+# ============================================================
+# Cost Attribution Queries
+# Track resource consumption per namespace, team, and project
+# ============================================================
+
+# ----- CPU cost attribution by namespace -----
+# Shows CPU usage rate per namespace (in cores)
+# Multiply by your hourly CPU cost to get actual spend
+sum by (namespace) (
+  rate(container_cpu_usage_seconds_total[5m])
+)
+
+# ----- Memory cost attribution by namespace -----
+# Shows memory usage per namespace (in bytes)
+# Convert to GiB and multiply by your hourly memory cost
+sum by (namespace) (
+  container_memory_usage_bytes
+)
+
+# ----- CPU usage by team label -----
+# Requires pods to have a "team" label (enforced by Kyverno)
+sum by (label_team) (
+  rate(container_cpu_usage_seconds_total[5m])
+  * on (namespace, pod) group_left(label_team)
+  kube_pod_labels{label_team!=""}
+)
+
+# ----- Memory usage by team label -----
+sum by (label_team) (
+  container_memory_usage_bytes
+  * on (namespace, pod) group_left(label_team)
+  kube_pod_labels{label_team!=""}
+)
+
+# ----- Top 10 most CPU-consuming pods -----
+topk(10,
+  sum by (namespace, pod) (
+    rate(container_cpu_usage_seconds_total[5m])
+  )
+)
+
+# ----- Top 10 most memory-consuming pods -----
+topk(10,
+  sum by (namespace, pod) (
+    container_memory_usage_bytes
+  )
+)
+
+# ----- Resource consumption by project label -----
+# Cost allocation per project for showback/chargeback
+sum by (label_project) (
+  rate(container_cpu_usage_seconds_total[5m])
+  * on (namespace, pod) group_left(label_project)
+  kube_pod_labels{label_project!=""}
+)

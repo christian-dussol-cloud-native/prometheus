@@ -1,0 +1,178 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "CNCF Project Focus #4 - Right-sizing, waste detection, and resource efficiency",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "title": "CPU Utilization vs Limits (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "avg by (namespace) ((sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[5m])) / sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"cpu\", container!=\"\"})) * 100)",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "custom": { "fillOpacity": 15, "lineWidth": 2 },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "green", "value": 40 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Memory Utilization vs Limits (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "avg by (namespace) ((sum by (namespace, pod) (container_memory_usage_bytes) / sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\", container!=\"\"})) * 100)",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "custom": { "fillOpacity": 15, "lineWidth": 2 },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 25 },
+              { "color": "green", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Over-Provisioned Pods (CPU < 15% of limit)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "(sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[1h])) / sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"cpu\", container!=\"\"})) * 100 < 15",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "yellow", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Over-Provisioned Pods (Memory < 20% of limit)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "(sum by (namespace, pod) (container_memory_usage_bytes) / sum by (namespace, pod) (kube_pod_container_resource_limits{resource=\"memory\", container!=\"\"})) * 100 < 20",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 8 },
+              { "color": "yellow", "value": 15 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Wasted CPU per Namespace (Requested - Used)",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "expr": "sum by (namespace) (kube_pod_container_resource_requests{resource=\"cpu\", container!=\"\"}) - sum by (namespace) (rate(container_cpu_usage_seconds_total[1h]))",
+          "legendFormat": "{{namespace}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Right-Sizing Ratio (Requested / Used)",
+      "description": "Values > 2 indicate over-provisioning by more than 2x",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "targets": [
+        {
+          "expr": "avg(sum by (namespace, pod) (kube_pod_container_resource_requests{resource=\"cpu\", container!=\"\"}) / sum by (namespace, pod) (rate(container_cpu_usage_seconds_total[1h])))",
+          "legendFormat": "Cluster Average"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "x",
+          "min": 0,
+          "max": 10,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "orange", "value": 3 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["prometheus", "efficiency", "rightsizing", "cncf-project-focus"],
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "query": "label_values(kube_namespace_labels, namespace)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "CNCF Project Focus #4 - Resource Efficiency",
+  "uid": "cncf-pf4-resource-efficiency"
+}
