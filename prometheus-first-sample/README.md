@@ -127,6 +127,12 @@ Consistent labeling is the foundation of cost visibility. This sample enforces:
 
 ---
 
+## Troubleshooting
+
+If you encounter issues (clock drift, empty dashboards, etc.), refer to the [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) guide.
+
+---
+
 ## Related Resources
 
 - Official Prometheus documentation at prometheus.io/docs
