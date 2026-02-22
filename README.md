@@ -10,11 +10,11 @@ This repository contains learning materials and educational examples for **Prome
 
 **Educational focus.** Real code and examples.
 
-### carousel/
+### [carousel/](./carousel)
 
 Collection of visual presentations (carousels) illustrating Prometheus concepts.
 
-### prometheus-first-sample/
+### [prometheus-first-sample/](./prometheus-first-sample)
 
 Complete hands-on tutorial to get started with Prometheus on Kubernetes, including:
 
