@@ -127,6 +127,19 @@ Consistent labeling is the foundation of cost visibility. This sample enforces:
 
 ---
 
+## Cleanup
+
+To remove all deployed resources:
+
+```bash
+chmod u+x ./setup/cleanup.sh
+./setup/cleanup.sh
+```
+
+The script removes sample workloads, Kyverno, kube-prometheus-stack, and optionally deletes the Minikube cluster.
+
+---
+
 ## Troubleshooting
 
 If you encounter issues (clock drift, empty dashboards, etc.), refer to the [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) guide.
